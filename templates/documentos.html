@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Documentos por Colaborador</h2>
+    {% if current_user.has_permission('add_colaborador') %}
+    <a href="{{ url_for('colaboradores') }}" class="btn btn-primary">Gerenciar Colaboradores</a>
+    {% endif %}
+</div>
+
+{% if colaboradores %}
+<div class="row">
+    {% for colab in colaboradores %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 colaborador-card">
+            <div class="card-header">
+                <h6 class="mb-0">{{ colab.nome }}</h6>
+                <small class="text-muted">{{ colab.departamento }} • {{ colab.cargo }}</small>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <h6 class="mb-0 text-primary">{{ colab.total_documentos }}</h6>
+                            <small>Total</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <h6 class="mb-0 text-warning">{{ colab.documentos_proximos }}</h6>
+                            <small>Próximos</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <h6 class="mb-0 text-danger">{{ colab.documentos_vencidos }}</h6>
+                            <small>Vencidos</small>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if colab.data_admissao %}
+                <p class="small text-muted mb-2">
+                    <strong>Admissão:</strong> {{ colab.data_admissao.strftime('%d/%m/%Y') }}
+                </p>
+                {% endif %}
+                
+                {% if colab.email %}
+                <p class="small text-muted mb-3">
+                    <strong>Email:</strong> {{ colab.email }}
+                </p>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-transparent">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('documentos_colaborador', colaborador_id=colab.id) }}" 
+                       class="btn btn-outline-primary btn-sm">
+                       Ver Documentos
+                    </a>
+                    {% if current_user.has_permission('add_documento') %}
+                    <a href="{{ url_for('novo_documento', colaborador_id=colab.id) }}" 
+                       class="btn btn-outline-success btn-sm">
+                       Adicionar Documento
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <h5 class="text-muted">Nenhum colaborador cadastrado</h5>
+        <p class="text-muted">Cadastre o primeiro colaborador para começar</p>
+        {% if current_user.has_permission('add_colaborador') %}
+        <a href="{{ url_for('novo_colaborador') }}" class="btn btn-primary mt-3">
+            Cadastrar Primeiro Colaborador
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

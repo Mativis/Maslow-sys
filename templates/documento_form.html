@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">Adicionar Documento - {{ colaborador.nome }}</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            {{ form.nome.label(class="form-label") }}
+                            {{ form.nome(class="form-control", placeholder="Ex: Contrato de Trabalho, Carteira de Habilitação...") }}
+                            {% if form.nome.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.nome.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.tipo_validade.label(class="form-label") }}
+                            {{ form.tipo_validade(class="form-select") }}
+                        </div>
+                        <div class="col-md-6 mb-3" id="data_validade_field">
+                            {{ form.data_validade.label(class="form-label") }}
+                            {{ form.data_validade(class="form-control", type="date") }}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            {{ form.arquivo.label(class="form-label") }}
+                            {{ form.arquivo(class="form-control") }}
+                            <small class="form-text text-muted">
+                                Formatos permitidos: PDF, DOC, DOCX, JPG, JPEG, PNG (Máx: 16MB)
+                            </small>
+                            {% if form.arquivo.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.arquivo.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            {{ form.observacoes.label(class="form-label") }}
+                            {{ form.observacoes(class="form-control", rows="3", placeholder="Observações opcionais...") }}
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('documentos', colaborador_id=colaborador.id) }}" class="btn btn-secondary me-md-2">Cancelar</a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tipoValidade = document.getElementById('tipo_validade');
+        const dataValidadeField = document.getElementById('data_validade_field');
+        
+        function toggleDataField() {
+            if (tipoValidade.value === 'personalizado') {
+                dataValidadeField.style.display = 'block';
+            } else {
+                dataValidadeField.style.display = 'none';
+            }
+        }
+        
+        tipoValidade.addEventListener('change', toggleDataField);
+        toggleDataField(); // Initial state
+    });
+</script>
+
+<style>
+    #data_validade_field {
+        display: none;
+    }
+</style>
+{% endblock %}

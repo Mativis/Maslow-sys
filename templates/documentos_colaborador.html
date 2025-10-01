@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Documentos de {{ colaborador.nome }}</h2>
+        <p class="text-muted mb-0">
+            {{ colaborador.departamento }} • {{ colaborador.cargo }}
+            {% if colaborador.data_admissao %}
+            • Admitido em {{ colaborador.data_admissao.strftime('%d/%m/%Y') }}
+            {% endif %}
+        </p>
+    </div>
+    <div>
+        {% if current_user.has_permission('add_documento') %}
+        <a href="{{ url_for('novo_documento', colaborador_id=colaborador.id) }}" class="btn btn-success">
+            Adicionar Documento
+        </a>
+        {% endif %}
+        <a href="{{ url_for('documentos') }}" class="btn btn-outline-primary">Voltar</a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h5 class="card-title">{{ documentos|length }}</h5>
+                <p class="card-text">Total de Documentos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <h5 class="card-title">{{ documentos|selectattr('status_vencimento', 'equalto', 'proximo_vencer')|list|length }}</h5>
+                <p class="card-text">Próximos do Vencimento</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body text-center">
+                <h5 class="card-title">{{ documentos|selectattr('status_vencimento', 'equalto', 'vencido')|list|length }}</h5>
+                <p class="card-text">Documentos Vencidos</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if documentos %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Lista de Documentos</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Documento</th>
+                        <th>Data Upload</th>
+                        <th>Validade</th>
+                        <th>Status</th>
+                        <th>Observações</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documentos %}
+                    <tr>
+                        <td>{{ doc.nome }}</td>
+                        <td>{{ doc.data_upload.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            {% if doc.tipo_validade == 'indeterminado' %}
+                                <span class="text-muted">Indeterminado</span>
+                            {% else %}
+                                {{ doc.data_validade.strftime('%d/%m/%Y') }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set status = doc.status_vencimento() %}
+                            {% if status == 'vencido' %}
+                                <span class="badge bg-danger">Vencido</span>
+                            {% elif status == 'proximo_vencer' %}
+                                <span class="badge bg-warning">Próximo</span>
+                            {% else %}
+                                <span class="badge bg-success">Válido</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if doc.observacoes %}
+                                <small class="text-muted">{{ doc.observacoes[:50] }}{% if doc.observacoes|length > 50 %}...{% endif %}</small>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('download_documento', documento_id=doc.id) }}" class="btn btn-sm btn-outline-primary">
+                                Download
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <h5 class="text-muted">Nenhum documento cadastrado para este colaborador</h5>
+        <p class="text-muted">Clique em "Adicionar Documento" para começar</p>
+        {% if current_user.has_permission('add_documento') %}
+        <a href="{{ url_for('novo_documento', colaborador_id=colaborador.id) }}" class="btn btn-primary mt-3">
+            Adicionar Primeiro Documento
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

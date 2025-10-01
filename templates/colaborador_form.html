@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Sistema RH{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-{{ 'person-plus' if not colaborador else 'person-check' }} me-2"></i>
+                    {{ title }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <label for="nome" class="form-label">
+                                <i class="bi bi-person me-1"></i>Nome Completo
+                            </label>
+                            {{ form.nome(class="form-control form-control-lg", placeholder="Digite o nome completo") }}
+                            {% if form.nome.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.nome.errors %}
+                                        <i class="bi bi-exclamation-circle me-1"></i>{{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">
+                                <i class="bi bi-envelope me-1"></i>Email
+                            </label>
+                            {{ form.email(class="form-control", placeholder="email@empresa.com") }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="departamento" class="form-label">
+                                <i class="bi bi-building me-1"></i>Departamento
+                            </label>
+                            {{ form.departamento(class="form-control", placeholder="Departamento") }}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="cargo" class="form-label">
+                                <i class="bi bi-briefcase me-1"></i>Cargo
+                            </label>
+                            {{ form.cargo(class="form-control", placeholder="Cargo") }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="data_admissao" class="form-label">
+                                <i class="bi bi-calendar-event me-1"></i>Data de Admissão
+                            </label>
+                            {{ form.data_admissao(class="form-control", type="date") }}
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{{ url_for('colaboradores') }}" class="btn btn-outline-secondary me-md-2">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-{{ 'check-lg' if colaborador else 'plus-lg' }} me-1"></i>
+                            {{ 'Atualizar' if colaborador else 'Cadastrar' }} Colaborador
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        {% if colaborador %}
+        <div class="card mt-4">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">
+                    <i class="bi bi-info-circle me-2"></i>Informações do Cadastro
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <small class="text-muted">Data de Criação:</small>
+                        <p class="mb-2">{{ colaborador.created_at.strftime('%d/%m/%Y às %H:%M') }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted">Total de Documentos:</small>
+                        <p class="mb-0">
+                            <span class="badge bg-primary">{{ colaborador.documentos|length }}</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

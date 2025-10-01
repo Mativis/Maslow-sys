@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">{{ total_colaboradores }}</h5>
+                <p class="card-text">Colaboradores</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5 class="card-title">{{ total_documentos }}</h5>
+                <p class="card-text">Documentos</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <h5 class="card-title">{{ documentos_proximos|length }}</h5>
+                <p class="card-text">Próximos do Vencimento</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger mb-3">
+            <div class="card-body">
+                <h5 class="card-title">{{ documentos_vencidos|length }}</h5>
+                <p class="card-text">Documentos Vencidos</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-warning text-white">
+                <h6>Documentos Próximos do Vencimento (30 dias)</h6>
+            </div>
+            <div class="card-body">
+                {% if documentos_proximos %}
+                    {% for doc in documentos_proximos %}
+                    <div class="alert alert-warning py-2">
+                        <strong>{{ doc.nome }}</strong> - {{ doc.colaborador.nome }}<br>
+                        <small>Vence em: {{ doc.data_validade.strftime('%d/%m/%Y') }}</small>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">Nenhum documento próximo do vencimento</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h6>Documentos Vencidos</h6>
+            </div>
+            <div class="card-body">
+                {% if documentos_vencidos %}
+                    {% for doc in documentos_vencidos %}
+                    <div class="alert alert-danger py-2">
+                        <strong>{{ doc.nome }}</strong> - {{ doc.colaborador.nome }}<br>
+                        <small>Venceu em: {{ doc.data_validade.strftime('%d/%m/%Y') }}</small>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">Nenhum documento vencido</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <div class="btn-group">
+        {% if current_user.has_permission('add_colaborador') %}
+        <a href="{{ url_for('colaboradores') }}" class="btn btn-outline-primary">Colaboradores</a>
+        {% endif %}
+        {% if current_user.has_permission('download') %}
+        <a href="{{ url_for('documentos') }}" class="btn btn-outline-success">Documentos</a>
+        {% endif %}
+        {% if current_user.role == 'administrador' %}
+        <a href="{{ url_for('usuarios') }}" class="btn btn-outline-dark">Usuários</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

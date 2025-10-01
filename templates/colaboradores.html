@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Colaboradores - Sistema RH{% endblock %}
+{% block page_title %}Gerenciar Colaboradores{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <p class="text-muted mb-0">Cadastre e gerencie os colaboradores da empresa</p>
+    </div>
+    {% if current_user.has_permission('add_colaborador') %}
+    <a href="{{ url_for('novo_colaborador') }}" class="btn btn-primary">
+        <i class="bi bi-person-plus me-1"></i>Novo Colaborador
+    </a>
+    {% endif %}
+</div>
+
+{% if colaboradores %}
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h6 class="mb-0">
+            <i class="bi bi-people-fill me-2"></i>Lista de Colaboradores
+            <span class="badge bg-primary ms-2">{{ colaboradores|length }}</span>
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nome</th>
+                        <th>Contato</th>
+                        <th>Departamento</th>
+                        <th>Cargo</th>
+                        <th>Admissão</th>
+                        <th>Documentos</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for colab in colaboradores %}
+                    <tr>
+                        <td>
+                            <strong>{{ colab.nome }}</strong>
+                        </td>
+                        <td>
+                            {% if colab.email %}
+                            <small class="text-muted">{{ colab.email }}</small>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ colab.departamento or '-' }}</td>
+                        <td>{{ colab.cargo or '-' }}</td>
+                        <td>
+                            {% if colab.data_admissao %}
+                            <small>{{ colab.data_admissao.strftime('%d/%m/%Y') }}</small>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ colab.documentos|length }}</span>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ url_for('documentos_colaborador', colaborador_id=colab.id) }}" 
+                                   class="btn btn-outline-primary" title="Ver Documentos">
+                                    <i class="bi bi-folder"></i>
+                                </a>
+                                {% if current_user.has_permission('add_documento') %}
+                                <a href="{{ url_for('novo_documento', colaborador_id=colab.id) }}" 
+                                   class="btn btn-outline-success" title="Adicionar Documento">
+                                    <i class="bi bi-plus-lg"></i>
+                                </a>
+                                {% endif %}
+                                {% if current_user.has_permission('add_colaborador') %}
+                                <a href="{{ url_for('editar_colaborador', colaborador_id=colab.id) }}" 
+                                   class="btn btn-outline-warning" title="Editar Colaborador">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card shadow-sm text-center py-5">
+    <div class="card-body">
+        <i class="bi bi-people display-1 text-muted mb-3"></i>
+        <h5 class="text-muted">Nenhum colaborador cadastrado</h5>
+        <p class="text-muted">Comece cadastrando o primeiro colaborador no sistema</p>
+        {% if current_user.has_permission('add_colaborador') %}
+        <a href="{{ url_for('novo_colaborador') }}" class="btn btn-primary mt-3">
+            <i class="bi bi-person-plus me-1"></i>Cadastrar Primeiro Colaborador
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Usuários do Sistema</h2>
+    {% if current_user.role == 'administrador' %}
+    <a href="{{ url_for('novo_usuario') }}" class="btn btn-primary">Novo Usuário</a>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Lista de Usuários</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Usuário</th>
+                        <th>Email</th>
+                        <th>Cargo</th>
+                        <th>Data Criação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usuario in usuarios %}
+                    <tr>
+                        <td>{{ usuario.username }}</td>
+                        <td>{{ usuario.email }}</td>
+                        <td>
+                            <span class="badge 
+                                {% if usuario.role == 'administrador' %}bg-danger
+                                {% elif usuario.role == 'gestor' %}bg-warning
+                                {% elif usuario.role == 'operador' %}bg-info
+                                {% else %}bg-secondary{% endif %}">
+                                {{ usuario.role|title }}
+                            </span>
+                        </td>
+                        <td>{{ usuario.created_at.strftime('%d/%m/%Y') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
