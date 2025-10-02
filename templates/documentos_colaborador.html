@@ -48,6 +48,22 @@
     </div>
 </div>
 
+<div class="row justify-content-end mb-4">
+    <div class="col-md-5 col-lg-4">
+        <form method="GET" class="d-flex">
+            <input type="search" name="search" class="form-control me-2" placeholder="Buscar documento..." value="{{ search_query }}">
+            <button class="btn btn-outline-secondary" type="submit" title="Pesquisar Documento">
+                <i class="bi bi-search"></i>
+            </button>
+            {% if search_query %}
+            <a href="{{ url_for('documentos_colaborador', colaborador_id=colaborador.id) }}" class="btn btn-outline-danger ms-2" title="Limpar Busca">
+                <i class="bi bi-x-lg"></i>
+            </a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
 {% if documentos %}
 <div class="card">
     <div class="card-header">
@@ -96,9 +112,24 @@
                             {% endif %}
                         </td>
                         <td>
-                            <a href="{{ url_for('download_documento', documento_id=doc.id) }}" class="btn btn-sm btn-outline-primary">
-                                Download
-                            </a>
+                            <div class="d-flex flex-nowrap">
+                                <a href="{{ url_for('download_documento', documento_id=doc.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Download">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                {% if current_user.has_permission('edit_documento') %}
+                                <a href="{{ url_for('editar_documento', documento_id=doc.id) }}" class="btn btn-sm btn-outline-warning me-1" title="Editar Documento">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                {% endif %}
+                                {% if current_user.has_permission('delete_documento') %}
+                                <form action="{{ url_for('excluir_documento', documento_id=doc.id) }}" method="POST" style="display:inline;"
+                                      onsubmit="return confirm('Tem certeza que deseja excluir o documento {{ doc.nome }}? Essa ação é irreversível.');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir Documento">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -110,9 +141,14 @@
 {% else %}
 <div class="card">
     <div class="card-body text-center py-5">
-        <h5 class="text-muted">Nenhum documento cadastrado para este colaborador</h5>
-        <p class="text-muted">Clique em "Adicionar Documento" para começar</p>
-        {% if current_user.has_permission('add_documento') %}
+        {% if search_query %}
+            <i class="bi bi-x-circle display-1 text-muted mb-3"></i>
+            <h5 class="text-muted">Nenhum documento encontrado para "{{ search_query }}"</h5>
+        {% else %}
+            <h5 class="text-muted">Nenhum documento cadastrado para este colaborador</h5>
+            <p class="text-muted">Clique em "Adicionar Documento" para começar</p>
+        {% endif %}
+        {% if current_user.has_permission('add_documento') and not search_query %}
         <a href="{{ url_for('novo_documento', colaborador_id=colaborador.id) }}" class="btn btn-primary mt-3">
             Adicionar Primeiro Documento
         </a>

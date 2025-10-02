@@ -5,7 +5,7 @@
     <div class="col-md-8">
         <div class="card">
             <div class="card-header">
-                <h4 class="mb-0">Adicionar Documento - {{ colaborador.nome }}</h4>
+                <h4 class="mb-0">{{ title }} - {{ colaborador.nome }}</h4>
             </div>
             <div class="card-body">
                 <form method="POST" enctype="multipart/form-data">
@@ -42,6 +42,10 @@
                             {{ form.arquivo(class="form-control") }}
                             <small class="form-text text-muted">
                                 Formatos permitidos: PDF, DOC, DOCX, JPG, JPEG, PNG (Máx: 16MB)
+                                {% if documento %}
+                                <br>
+                                Arquivo atual: <strong>{{ documento.arquivo }}</strong>. Deixe em branco para manter o arquivo existente.
+                                {% endif %}
                             </small>
                             {% if form.arquivo.errors %}
                                 <div class="text-danger">
@@ -61,8 +65,8 @@
                     </div>
                     
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{{ url_for('documentos', colaborador_id=colaborador.id) }}" class="btn btn-secondary me-md-2">Cancelar</a>
-                        {{ form.submit(class="btn btn-primary") }}
+                        <a href="{{ url_for('documentos_colaborador', colaborador_id=colaborador.id) }}" class="btn btn-secondary me-md-2">Cancelar</a>
+                        {{ form.submit(class="btn btn-primary", value=('Atualizar Documento' if documento else 'Adicionar Documento')) }}
                     </div>
                 </form>
             </div>
@@ -83,14 +87,10 @@
             }
         }
         
-        tipoValidade.addEventListener('change', toggleDataField);
-        toggleDataField(); // Initial state
+        tipoValdade.addEventListener('change', toggleDataField);
+        // Garante que o estado inicial é definido corretamente
+        toggleDataField(); 
     });
 </script>
 
-<style>
-    #data_validade_field {
-        display: none;
-    }
-</style>
 {% endblock %}
