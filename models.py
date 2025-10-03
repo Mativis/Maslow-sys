@@ -60,3 +60,18 @@ class Documento(db.Model):
             return 'proximo_vencer'
         else:
             return 'válido'
+
+# NOVO MODELO: Log de Auditoria
+class LogAuditoria(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    acao = db.Column(db.String(100), nullable=False)  # Ex: 'criar_usuario', 'editar_usuario', 'excluir_documento'
+    descricao = db.Column(db.Text, nullable=False)
+    tabela_afetada = db.Column(db.String(50))  # Ex: 'user', 'documento', 'colaborador'
+    registro_id = db.Column(db.Integer)  # ID do registro afetado
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relacionamento com usuário
+    usuario = db.relationship('User', backref='logs')

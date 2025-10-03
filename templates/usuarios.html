@@ -21,6 +21,9 @@
                         <th>Email</th>
                         <th>Cargo</th>
                         <th>Data Criação</th>
+                        {% if current_user.role == 'administrador' %}
+                        <th>Ações</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -38,11 +41,28 @@
                             </span>
                         </td>
                         <td>{{ usuario.created_at.strftime('%d/%m/%Y') }}</td>
+                        {% if current_user.role == 'administrador' %}
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('editar_usuario', usuario_id=usuario.id) }}" 
+                                   class="btn btn-outline-warning" title="Editar Usuário">
+                                    <i class="bi bi-pencil"></i> Editar
+                                </a>
+                            </div>
+                        </td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+</div>
+
+<!-- NOVO: Link para página de auditoria -->
+<div class="mt-4">
+    <a href="{{ url_for('auditoria') }}" class="btn btn-outline-info">
+        <i class="bi bi-clock-history"></i> Ver Log de Auditoria
+    </a>
 </div>
 {% endblock %}

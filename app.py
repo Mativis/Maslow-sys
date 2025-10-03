@@ -1,23 +1,23 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
-from models import db, User, Colaborador, Documento
-from forms import LoginForm, ColaboradorForm, DocumentoForm, UsuarioForm
+from models import db, User, Colaborador, Documento, LogAuditoria
+from forms import LoginForm, ColaboradorForm, DocumentoForm, UsuarioForm, EditarUsuarioForm
 from utils import calcular_data_validade, get_documentos_vencidos, get_documentos_proximos_vencer
 from datetime import datetime
 import os
 from werkzeug.utils import secure_filename
-from flask_wtf.file import FileRequired # Importação necessária para manipular validação na edição
+from flask_wtf.file import FileRequired
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'sua-chave-secreta-aqui'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rh_documentos.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # ADICIONAR ESTA LINHA
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {  # ADICIONAR CONFIGURAÇÕES
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_recycle': 300,
     'pool_pre_ping': True
 }
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB (CORRIGIDO)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 
 # Inicializações
 db.init_app(app)
@@ -31,6 +31,24 @@ def load_user(user_id):
 
 # Criar diretório de uploads
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# FUNÇÃO: Registrar log de auditoria
+def registrar_log(acao, descricao, tabela_afetada=None, registro_id=None):
+    try:
+        log = LogAuditoria(
+            usuario_id=current_user.id,
+            acao=acao,
+            descricao=descricao,
+            tabela_afetada=tabela_afetada,
+            registro_id=registro_id,
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as e:
+        print(f"Erro ao registrar log: {e}")
+        db.session.rollback()
 
 @app.route('/')
 @login_required
@@ -53,6 +71,15 @@ def login():
         user = User.query.filter_by(username=form.username.data).first()
         if user and user.check_password(form.password.data):
             login_user(user)
+            
+            # REGISTRAR LOG
+            registrar_log(
+                acao='login',
+                descricao=f'Usuário {user.username} fez login no sistema',
+                tabela_afetada='user',
+                registro_id=user.id
+            )
+            
             flash(f'Bem-vindo, {user.username}!', 'success')
             return redirect(url_for('dashboard'))
         flash('Usuário ou senha inválidos', 'danger')
@@ -61,6 +88,14 @@ def login():
 @app.route('/logout')
 @login_required
 def logout():
+    # REGISTRAR LOG
+    registrar_log(
+        acao='logout',
+        descricao=f'Usuário {current_user.username} fez logout do sistema',
+        tabela_afetada='user',
+        registro_id=current_user.id
+    )
+    
     logout_user()
     flash('Você saiu do sistema', 'info')
     return redirect(url_for('login'))
@@ -99,6 +134,15 @@ def novo_colaborador():
             )
             db.session.add(colaborador)
             db.session.commit()
+            
+            # REGISTRAR LOG
+            registrar_log(
+                acao='criar_colaborador',
+                descricao=f'Colaborador {form.nome.data} criado no departamento {form.departamento.data}',
+                tabela_afetada='colaborador',
+                registro_id=colaborador.id
+            )
+            
             flash('Colaborador cadastrado com sucesso!', 'success')
             return redirect(url_for('colaboradores'))
         except Exception as e:
@@ -119,6 +163,19 @@ def editar_colaborador(colaborador_id):
     
     if form.validate_on_submit():
         try:
+            # Registrar alterações para o log
+            alteracoes = []
+            if colaborador.nome != form.nome.data:
+                alteracoes.append(f"nome: {colaborador.nome} -> {form.nome.data}")
+            if colaborador.email != form.email.data:
+                alteracoes.append(f"email: {colaborador.email} -> {form.email.data}")
+            if colaborador.departamento != form.departamento.data:
+                alteracoes.append(f"departamento: {colaborador.departamento} -> {form.departamento.data}")
+            if colaborador.cargo != form.cargo.data:
+                alteracoes.append(f"cargo: {colaborador.cargo} -> {form.cargo.data}")
+            if colaborador.data_admissao != form.data_admissao.data:
+                alteracoes.append(f"data_admissao: {colaborador.data_admissao} -> {form.data_admissao.data}")
+            
             colaborador.nome = form.nome.data
             colaborador.email = form.email.data
             colaborador.departamento = form.departamento.data
@@ -126,6 +183,16 @@ def editar_colaborador(colaborador_id):
             colaborador.data_admissao = form.data_admissao.data
             
             db.session.commit()
+            
+            # REGISTRAR LOG
+            if alteracoes:
+                registrar_log(
+                    acao='editar_colaborador',
+                    descricao=f'Colaborador {colaborador.nome} alterado: {", ".join(alteracoes)}',
+                    tabela_afetada='colaborador',
+                    registro_id=colaborador.id
+                )
+            
             flash('Colaborador atualizado com sucesso!', 'success')
             return redirect(url_for('colaboradores'))
         except Exception as e:
@@ -134,19 +201,18 @@ def editar_colaborador(colaborador_id):
     
     return render_template('colaborador_form.html', form=form, colaborador=colaborador, title='Editar Colaborador')
 
-# Rota de documentos do colaborador específico (FIX para busca)
+# Rota de documentos do colaborador específico
 @app.route('/colaborador/<int:colaborador_id>/documentos')
 @login_required
 def documentos_colaborador(colaborador_id):
     colaborador = Colaborador.query.get_or_404(colaborador_id)
     
-    # Lógica de pesquisa por nome do documento (CORRIGIDA)
+    # Lógica de pesquisa por nome do documento
     search_query = request.args.get('search', '').strip()
     
     query = Documento.query.filter_by(colaborador_id=colaborador_id)
     if search_query:
         # Busca insensível a caixa e parcial no nome do documento
-        # CORREÇÃO: Usando ilike para busca case-insensitive
         search_term = f'%{search_query}%'
         query = query.filter(Documento.nome.ilike(search_term))
         
@@ -157,11 +223,11 @@ def documentos_colaborador(colaborador_id):
                          documentos=documentos,
                          search_query=search_query)
 
-# Rota principal de documentos (mostra todos os colaboradores - FIX para busca)
+# Rota principal de documentos (mostra todos os colaboradores)
 @app.route('/documentos')
 @login_required
 def documentos():
-    # Lógica de pesquisa por nome do colaborador (CORRIGIDA)
+    # Lógica de pesquisa por nome do colaborador
     search_query = request.args.get('search', '').strip()
     
     query = Colaborador.query
@@ -172,7 +238,7 @@ def documentos():
         
     colaboradores = query.all()
     
-    # Contar documentos por colaborador (CORREÇÃO: Esta lógica está correta)
+    # Contar documentos por colaborador
     for colaborador in colaboradores:
         colaborador.total_documentos = len(colaborador.documentos)
         colaborador.documentos_vencidos = len([d for d in colaborador.documentos if d.status_vencimento() == 'vencido'])
@@ -180,7 +246,7 @@ def documentos():
     
     return render_template('documentos.html', colaboradores=colaboradores, search_query=search_query)
 
-# Rota para adicionar documento (ATUALIZADA para passar título)
+# Rota para adicionar documento
 @app.route('/documento/novo/<int:colaborador_id>', methods=['GET', 'POST'])
 @login_required
 def novo_documento(colaborador_id):
@@ -218,7 +284,7 @@ def novo_documento(colaborador_id):
             arquivo.save(arquivo_path)
             print("Arquivo salvo com sucesso")
             
-            # CORREÇÃO: Lógica simplificada para data_validade
+            # Lógica simplificada para data_validade
             data_validade = None
             if form.tipo_validade.data == 'personalizado':
                 data_validade = form.data_validade.data
@@ -240,6 +306,14 @@ def novo_documento(colaborador_id):
             db.session.commit()
             print("Documento salvo no banco")
             
+            # REGISTRAR LOG
+            registrar_log(
+                acao='criar_documento',
+                descricao=f'Documento {form.nome.data} adicionado para colaborador {colaborador.nome}',
+                tabela_afetada='documento',
+                registro_id=documento.id
+            )
+            
             flash('Documento adicionado com sucesso!', 'success')
             return redirect(url_for('documentos_colaborador', colaborador_id=colaborador_id))
             
@@ -251,7 +325,7 @@ def novo_documento(colaborador_id):
     
     return render_template('documento_form.html', form=form, colaborador=colaborador, title='Adicionar Novo Documento')
 
-# Rota para editar documento (NOVA)
+# Rota para editar documento
 @app.route('/documento/editar/<int:documento_id>', methods=['GET', 'POST'])
 @login_required
 def editar_documento(documento_id):
@@ -270,6 +344,13 @@ def editar_documento(documento_id):
 
     if form.validate_on_submit():
         try:
+            # Registrar alterações para o log
+            alteracoes = []
+            if documento.nome != form.nome.data:
+                alteracoes.append(f"nome: {documento.nome} -> {form.nome.data}")
+            if documento.tipo_validade != form.tipo_validade.data:
+                alteracoes.append(f"tipo_validade: {documento.tipo_validade} -> {form.tipo_validade.data}")
+            
             # 1. Tratar o upload do arquivo
             if form.arquivo.data and form.arquivo.data.filename:
                 arquivo = form.arquivo.data
@@ -283,12 +364,16 @@ def editar_documento(documento_id):
                     
                 arquivo.save(arquivo_path)
                 documento.arquivo = filename # Atualiza o nome do arquivo no banco
+                alteracoes.append(f"arquivo: {documento.arquivo} -> {filename}")
             
             # 2. Recalcular a data de validade
             data_validade = calcular_data_validade(
                 form.tipo_validade.data, 
                 form.data_validade.data if form.tipo_validade.data == 'personalizado' else None
             )
+            
+            if documento.data_validade != data_validade:
+                alteracoes.append(f"data_validade: {documento.data_validade} -> {data_validade}")
             
             # 3. Atualizar campos do documento
             documento.nome = form.nome.data
@@ -297,6 +382,16 @@ def editar_documento(documento_id):
             documento.observacoes = form.observacoes.data
             
             db.session.commit()
+            
+            # REGISTRAR LOG
+            if alteracoes:
+                registrar_log(
+                    acao='editar_documento',
+                    descricao=f'Documento {documento.nome} alterado: {", ".join(alteracoes)}',
+                    tabela_afetada='documento',
+                    registro_id=documento.id
+                )
+            
             flash('Documento atualizado com sucesso!', 'success')
             return redirect(url_for('documentos_colaborador', colaborador_id=colaborador.id))
         except Exception as e:
@@ -305,7 +400,7 @@ def editar_documento(documento_id):
 
     return render_template('documento_form.html', form=form, colaborador=colaborador, documento=documento, title='Editar Documento')
 
-# Rota para excluir documento (NOVA)
+# Rota para excluir documento
 @app.route('/documento/excluir/<int:documento_id>', methods=['POST'])
 @login_required
 def excluir_documento(documento_id):
@@ -315,6 +410,7 @@ def excluir_documento(documento_id):
     
     documento = Documento.query.get_or_404(documento_id)
     colaborador_id = documento.colaborador_id
+    nome_documento = documento.nome
     
     try:
         # 1. Deletar o arquivo do sistema de arquivos
@@ -325,6 +421,15 @@ def excluir_documento(documento_id):
         # 2. Deletar o registro do banco de dados
         db.session.delete(documento)
         db.session.commit()
+        
+        # REGISTRAR LOG
+        registrar_log(
+            acao='excluir_documento',
+            descricao=f'Documento {nome_documento} excluído',
+            tabela_afetada='documento',
+            registro_id=documento_id
+        )
+        
         flash('Documento excluído com sucesso!', 'success')
     except Exception as e:
         db.session.rollback()
@@ -345,6 +450,14 @@ def download_documento(documento_id):
     if not os.path.exists(arquivo_path):
         flash('Arquivo não encontrado', 'danger')
         return redirect(url_for('documentos'))
+    
+    # REGISTRAR LOG
+    registrar_log(
+        acao='download_documento',
+        descricao=f'Download do documento {documento.nome}',
+        tabela_afetada='documento',
+        registro_id=documento.id
+    )
     
     return send_file(arquivo_path, as_attachment=True)
 
@@ -381,6 +494,15 @@ def novo_usuario():
             user.set_password(form.password.data)
             db.session.add(user)
             db.session.commit()
+            
+            # REGISTRAR LOG
+            registrar_log(
+                acao='criar_usuario',
+                descricao=f'Usuário {form.username.data} criado com cargo {form.role.data}',
+                tabela_afetada='user',
+                registro_id=user.id
+            )
+            
             flash('Usuário cadastrado com sucesso!', 'success')
             return redirect(url_for('usuarios'))
         except Exception as e:
@@ -388,6 +510,68 @@ def novo_usuario():
             flash('Erro ao cadastrar usuário', 'danger')
     
     return render_template('usuario_form.html', form=form)
+
+# ROTA: Editar usuário
+@app.route('/usuario/editar/<int:usuario_id>', methods=['GET', 'POST'])
+@login_required
+def editar_usuario(usuario_id):
+    if current_user.role != 'administrador':
+        flash('Acesso não autorizado', 'warning')
+        return redirect(url_for('dashboard'))
+    
+    usuario = User.query.get_or_404(usuario_id)
+    form = EditarUsuarioForm(obj=usuario)
+    
+    if form.validate_on_submit():
+        try:
+            # Registrar alterações para o log
+            alteracoes = []
+            if usuario.username != form.username.data:
+                alteracoes.append(f"username: {usuario.username} -> {form.username.data}")
+            if usuario.email != form.email.data:
+                alteracoes.append(f"email: {usuario.email} -> {form.email.data}")
+            if usuario.role != form.role.data:
+                alteracoes.append(f"role: {usuario.role} -> {form.role.data}")
+            
+            # Atualizar usuário
+            usuario.username = form.username.data
+            usuario.email = form.email.data
+            usuario.role = form.role.data
+            
+            db.session.commit()
+            
+            # REGISTRAR LOG
+            if alteracoes:
+                registrar_log(
+                    acao='editar_usuario',
+                    descricao=f'Usuário {usuario.username} alterado: {", ".join(alteracoes)}',
+                    tabela_afetada='user',
+                    registro_id=usuario.id
+                )
+            
+            flash('Usuário atualizado com sucesso!', 'success')
+            return redirect(url_for('usuarios'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao atualizar usuário: {str(e)}', 'danger')
+    
+    return render_template('editar_usuario.html', form=form, usuario=usuario)
+
+# ROTA: Log de auditoria
+@app.route('/auditoria')
+@login_required
+def auditoria():
+    if current_user.role != 'administrador':
+        flash('Acesso não autorizado', 'warning')
+        return redirect(url_for('dashboard'))
+    
+    # Paginação simples
+    page = request.args.get('page', 1, type=int)
+    logs = LogAuditoria.query.order_by(LogAuditoria.created_at.desc()).paginate(
+        page=page, per_page=20, error_out=False
+    )
+    
+    return render_template('auditoria.html', logs=logs)
 
 # Criar banco de dados e usuário admin padrão
 with app.app_context():

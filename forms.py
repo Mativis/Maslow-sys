@@ -29,7 +29,7 @@ class DocumentoForm(FlaskForm):
     data_validade = DateField('Data de Validade (para personalizado)', validators=[Optional()])
     arquivo = FileField('Arquivo', validators=[FileRequired(), FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'Apenas documentos e imagens!')])
     observacoes = TextAreaField('Observações')
-    submit = SubmitField('Adicionar Documento')  # CORREÇÃO: Linha completa
+    submit = SubmitField('Adicionar Documento')
 
     def validate_data_validade(self, field):
         if self.tipo_validade.data == 'personalizado' and not field.data:
@@ -46,3 +46,15 @@ class UsuarioForm(FlaskForm):
         ('administrador', 'Administrador')
     ], validators=[DataRequired()])
     submit = SubmitField('Cadastrar Usuário')
+
+# NOVO FORMULÁRIO: Edição de Usuário
+class EditarUsuarioForm(FlaskForm):
+    username = StringField('Usuário', validators=[DataRequired(), Length(max=80)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    role = SelectField('Cargo', choices=[
+        ('visitante', 'Visitante'),
+        ('operador', 'Operador'),
+        ('gestor', 'Gestor'),
+        ('administrador', 'Administrador')
+    ], validators=[DataRequired()])
+    submit = SubmitField('Atualizar Usuário')
