@@ -11,8 +11,13 @@ from flask_wtf.file import FileRequired # Importação necessária para manipula
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'sua-chave-secreta-aqui'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///rh_documentos.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # ADICIONAR ESTA LINHA
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {  # ADICIONAR CONFIGURAÇÕES
+    'pool_recycle': 300,
+    'pool_pre_ping': True
+}
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 128 * 1024 * 1024  # 16MB
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB (CORRIGIDO)
 
 # Inicializações
 db.init_app(app)
@@ -59,6 +64,11 @@ def logout():
     logout_user()
     flash('Você saiu do sistema', 'info')
     return redirect(url_for('login'))
+
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    """Fechar sessão ao final de cada request"""
+    db.session.remove()
 
 @app.route('/colaboradores')
 @login_required
@@ -124,48 +134,51 @@ def editar_colaborador(colaborador_id):
     
     return render_template('colaborador_form.html', form=form, colaborador=colaborador, title='Editar Colaborador')
 
-# Rota de documentos do colaborador específico (ATUALIZADA com busca)
+# Rota de documentos do colaborador específico (FIX para busca)
 @app.route('/colaborador/<int:colaborador_id>/documentos')
 @login_required
 def documentos_colaborador(colaborador_id):
     colaborador = Colaborador.query.get_or_404(colaborador_id)
     
-    # Lógica de pesquisa por nome do documento
+    # Lógica de pesquisa por nome do documento (CORRIGIDA)
     search_query = request.args.get('search', '').strip()
     
     query = Documento.query.filter_by(colaborador_id=colaborador_id)
     if search_query:
         # Busca insensível a caixa e parcial no nome do documento
-        query = query.filter(Documento.nome.ilike(f'%{search_query}%'))
+        # CORREÇÃO: Usando ilike para busca case-insensitive
+        search_term = f'%{search_query}%'
+        query = query.filter(Documento.nome.ilike(search_term))
         
     documentos = query.all()
     
     return render_template('documentos_colaborador.html', 
                          colaborador=colaborador, 
                          documentos=documentos,
-                         search_query=search_query) # Passa o termo de busca para o template
+                         search_query=search_query)
 
-# Rota principal de documentos (mostra todos os colaboradores - ATUALIZADA com busca)
+# Rota principal de documentos (mostra todos os colaboradores - FIX para busca)
 @app.route('/documentos')
 @login_required
 def documentos():
-    # Lógica de pesquisa por nome do colaborador
+    # Lógica de pesquisa por nome do colaborador (CORRIGIDA)
     search_query = request.args.get('search', '').strip()
     
     query = Colaborador.query
     if search_query:
         # Busca insensível a caixa e parcial no nome do colaborador
-        query = query.filter(Colaborador.nome.ilike(f'%{search_query}%'))
+        search_term = f'%{search_query}%'
+        query = query.filter(Colaborador.nome.ilike(search_term))
         
     colaboradores = query.all()
     
-    # Contar documentos por colaborador
+    # Contar documentos por colaborador (CORREÇÃO: Esta lógica está correta)
     for colaborador in colaboradores:
         colaborador.total_documentos = len(colaborador.documentos)
         colaborador.documentos_vencidos = len([d for d in colaborador.documentos if d.status_vencimento() == 'vencido'])
         colaborador.documentos_proximos = len([d for d in colaborador.documentos if d.status_vencimento() == 'proximo_vencer'])
     
-    return render_template('documentos.html', colaboradores=colaboradores, search_query=search_query) # Passa o termo de busca para o template
+    return render_template('documentos.html', colaboradores=colaboradores, search_query=search_query)
 
 # Rota para adicionar documento (ATUALIZADA para passar título)
 @app.route('/documento/novo/<int:colaborador_id>', methods=['GET', 'POST'])
@@ -175,20 +188,44 @@ def novo_documento(colaborador_id):
         flash('Acesso não autorizado', 'warning')
         return redirect(url_for('documentos'))
     
+    print(f"=== NOVO DOCUMENTO - Colaborador ID: {colaborador_id} ===")
+    
     colaborador = Colaborador.query.get_or_404(colaborador_id)
     form = DocumentoForm()
     
+    print(f"Form validado: {form.validate_on_submit()}")
+    print(f"Erros do form: {form.errors}")
+    
     if form.validate_on_submit():
         try:
+            print("Tentando salvar documento...")
+            
             arquivo = form.arquivo.data
             filename = secure_filename(arquivo.filename)
             arquivo_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            arquivo.save(arquivo_path)
             
-            data_validade = calcular_data_validade(
-                form.tipo_validade.data, 
-                form.data_validade.data if form.tipo_validade.data == 'personalizado' else None
-            )
+            print(f"Arquivo: {filename}")
+            print(f"Caminho: {arquivo_path}")
+            
+            # Verificar se arquivo já existe
+            if os.path.exists(arquivo_path):
+                name, ext = os.path.splitext(filename)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"{name}_{timestamp}{ext}"
+                arquivo_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                print(f"Arquivo renomeado para: {filename}")
+            
+            arquivo.save(arquivo_path)
+            print("Arquivo salvo com sucesso")
+            
+            # CORREÇÃO: Lógica simplificada para data_validade
+            data_validade = None
+            if form.tipo_validade.data == 'personalizado':
+                data_validade = form.data_validade.data
+            else:
+                data_validade = calcular_data_validade(form.tipo_validade.data, None)
+            
+            print(f"Data validade calculada: {data_validade}")
             
             documento = Documento(
                 colaborador_id=colaborador_id,
@@ -201,13 +238,18 @@ def novo_documento(colaborador_id):
             
             db.session.add(documento)
             db.session.commit()
+            print("Documento salvo no banco")
+            
             flash('Documento adicionado com sucesso!', 'success')
             return redirect(url_for('documentos_colaborador', colaborador_id=colaborador_id))
+            
         except Exception as e:
             db.session.rollback()
-            flash('Erro ao adicionar documento', 'danger')
+            error_msg = f'Erro ao adicionar documento: {str(e)}'
+            print(f"ERRO: {error_msg}")
+            flash(error_msg, 'danger')
     
-    return render_template('documento_form.html', form=form, colaborador=colaborador, title='Adicionar Novo Documento') # Título explícito
+    return render_template('documento_form.html', form=form, colaborador=colaborador, title='Adicionar Novo Documento')
 
 # Rota para editar documento (NOVA)
 @app.route('/documento/editar/<int:documento_id>', methods=['GET', 'POST'])

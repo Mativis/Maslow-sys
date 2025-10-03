@@ -1,7 +1,8 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 from wtforms import StringField, PasswordField, SelectField, DateField, TextAreaField, SubmitField
-from wtforms.validators import DataRequired, Email, Length
+from wtforms.validators import DataRequired, Email, Length, Optional
+from wtforms.validators import ValidationError
 
 class LoginForm(FlaskForm):
     username = StringField('Usuário', validators=[DataRequired()])
@@ -25,10 +26,14 @@ class DocumentoForm(FlaskForm):
         ('12', '12 Meses'),
         ('personalizado', 'Data Personalizada')
     ], validators=[DataRequired()])
-    data_validade = DateField('Data de Validade (para personalizado)')
+    data_validade = DateField('Data de Validade (para personalizado)', validators=[Optional()])
     arquivo = FileField('Arquivo', validators=[FileRequired(), FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'Apenas documentos e imagens!')])
     observacoes = TextAreaField('Observações')
-    submit = SubmitField('Adicionar Documento')
+    submit = SubmitField('Adicionar Documento')  # CORREÇÃO: Linha completa
+
+    def validate_data_validade(self, field):
+        if self.tipo_validade.data == 'personalizado' and not field.data:
+            raise ValidationError('Data de validade é obrigatória quando o tipo é "Data Personalizada"')
 
 class UsuarioForm(FlaskForm):
     username = StringField('Usuário', validators=[DataRequired(), Length(max=80)])

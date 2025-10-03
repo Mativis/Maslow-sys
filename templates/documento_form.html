@@ -8,7 +8,7 @@
                 <h4 class="mb-0">{{ title }} - {{ colaborador.nome }}</h4>
             </div>
             <div class="card-body">
-                <form method="POST" enctype="multipart/form-data">
+                <form method="POST" enctype="multipart/form-data" id="documentoForm">
                     {{ form.hidden_tag() }}
                     
                     <div class="row">
@@ -28,11 +28,28 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             {{ form.tipo_validade.label(class="form-label") }}
-                            {{ form.tipo_validade(class="form-select") }}
+                            {{ form.tipo_validade(class="form-select", id="tipo_validade") }}
+                            {% if form.tipo_validade.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.tipo_validade.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
-                        <div class="col-md-6 mb-3" id="data_validade_field">
+                        <div class="col-md-6 mb-3" id="data_validade_field" style="display: none;">
                             {{ form.data_validade.label(class="form-label") }}
                             {{ form.data_validade(class="form-control", type="date") }}
+                            {% if form.data_validade.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.data_validade.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                Obrigatório apenas quando o tipo é "Data Personalizada"
+                            </small>
                         </div>
                     </div>
                     
@@ -78,19 +95,46 @@
     document.addEventListener('DOMContentLoaded', function() {
         const tipoValidade = document.getElementById('tipo_validade');
         const dataValidadeField = document.getElementById('data_validade_field');
+        const dataValidadeInput = document.getElementById('data_validade');
         
         function toggleDataField() {
+            console.log('Tipo validade selecionado:', tipoValidade.value);
+            
             if (tipoValidade.value === 'personalizado') {
                 dataValidadeField.style.display = 'block';
+                // Tornar obrigatório apenas quando for personalizado
+                dataValidadeInput.required = true;
             } else {
                 dataValidadeField.style.display = 'none';
+                // Remover obrigatoriedade e limpar campo
+                dataValidadeInput.required = false;
+                dataValidadeInput.value = '';
             }
         }
         
-        tipoValdade.addEventListener('change', toggleDataField);
-        // Garante que o estado inicial é definido corretamente
-        toggleDataField(); 
+        // Event listeners
+        tipoValidade.addEventListener('change', toggleDataField);
+        
+        // Validar antes do envio
+        document.getElementById('documentoForm').addEventListener('submit', function(e) {
+            if (tipoValidade.value === 'personalizado' && !dataValidadeInput.value) {
+                e.preventDefault();
+                alert('Por favor, selecione uma data de validade para o tipo "Data Personalizada"');
+                dataValidadeField.style.display = 'block';
+                dataValidadeInput.focus();
+                return false;
+            }
+        });
+        
+        // Inicializar estado correto
+        toggleDataField();
     });
 </script>
 
+<style>
+    /* Estilo para destacar campo quando obrigatório */
+    #data_validade[required] {
+        border-left: 4px solid #dc3545;
+    }
+</style>
 {% endblock %}
